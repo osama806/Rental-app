@@ -7,6 +7,7 @@ use App\Models\CodeGenerator;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -47,9 +48,13 @@ class AuthController extends Controller
                 'msg' => ['username or password are incorrect.'],
             ]);
         }
+        if (DB::table('personal_access_tokens')->where('tokenable_id', $user->id)->get()->count() > 0) {
+            $user->tokens()->delete();
+        }
+        $new_token = $user->createToken($request->device_name)->plainTextToken;
         return response([
             "isSuccess"         =>      true,
-            "token"             =>      $user->createToken($request->device_name)->plainTextToken
+            "token"             =>      $new_token
         ], 200);
     }
 
@@ -73,7 +78,7 @@ class AuthController extends Controller
             return response([
                 "isSuccess"         =>      false,
                 "msg"               =>      "This phone number isn't found"
-            ], 200);
+            ], 404);
         }
         $code = rand(1000, 9999);
         $code_generation = CodeGenerator::where("phone", "=", $request->phone)->first();
@@ -114,7 +119,7 @@ class AuthController extends Controller
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "OTP code is wrong!"
-            ], 200);
+            ], 406);
         } else {
             $date = Carbon::parse($code->updated_at);
             if ($date->isFuture()) {
@@ -126,7 +131,7 @@ class AuthController extends Controller
                 return response([
                     "isSuccess"     =>      false,
                     "msg"           =>      "OTP code is expired"
-                ], 200);
+                ], 406);
             }
         }
     }
@@ -143,21 +148,21 @@ class AuthController extends Controller
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "OTP code or phone is wrong!"
-            ], 200);
+            ], 406);
         }
         $date = Carbon::parse($code->updated_at);
         if (!$date->isFuture()) {
             return response([
                 "isSuccess"         =>      false,
                 "msg"               =>      "OTP code is expired"
-            ], 200);
+            ], 406);
         } else {
             $user = User::where("phone", "=", $request->phone)->first();
             if (!$user) {
                 return response([
                     "isSuccess"     =>      false,
                     "msg"           =>      "This user isn't found"
-                ], 200);
+                ], 404);
             } else {
                 $user->password = bcrypt($request->password);
                 $user->save();

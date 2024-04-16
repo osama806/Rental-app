@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Owner;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contract;
@@ -23,7 +23,7 @@ class EstateController extends Controller
             $date = Carbon::parse($reserve->expired_date);
             if (!$date->isFuture()) {
                 $reserve->estate->reserved = "no";
-                $reserve->save();
+                $reserve->estate->save();
             }
         }
         $contracts = Contract::all();
@@ -31,7 +31,7 @@ class EstateController extends Controller
             $date = Carbon::parse($contract->expired_date);
             if (!$date->isFuture()) {
                 $contract->estate->rented = "no";
-                $contract->save();
+                $contract->estate->save();
             }
         }
         $data = [
@@ -75,10 +75,7 @@ class EstateController extends Controller
             "state"             =>      $request->state,
             "locality"          =>      $request->locality,
             "sub_locality"      =>      $request->sub_locality,
-            "street"            =>      $request->street_name,
-            "owner"             =>      auth()->user()->name,
-            "reserved"          =>      "no",
-            "rented"            =>      "no"
+            "street_name"       =>      $request->street,
         ]);
         if (!$record_create) {
             $record_create->delete();

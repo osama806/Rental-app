@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Owner\EstateController;
+use App\Http\Controllers\EstateController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,5 +17,5 @@ use Illuminate\Support\Facades\Route;
 Route::prefix("admin")->resource("estates", EstateController::class);
 
 Route::get('/', function () {
-    return redirect()->route("Owner.Estate.index");
+    return redirect()->route("estates.index");
 });

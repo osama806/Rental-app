@@ -41,7 +41,7 @@ class ApiController extends Controller
             return response([
                 "isSuccess" => false,
                 "msg" => "This estate isn't found"
-            ], 200);
+            ], 404);
         }
         $data = [
             "owner"            =>    $estate->owner,
@@ -64,27 +64,27 @@ class ApiController extends Controller
         ], 200);
     }
 
-    public function realEstate_reservation(Request $request): HttpResponse
+    public function realEstate_reservation(string $id): HttpResponse
     {
         $user = User::find(auth()->user()->id);
-        $estate = RealEstate::find($request->estate_id);
+        $estate = RealEstate::find($id);
         if (!$estate) {
             return response([
                 "isSuccess" => false,
                 "msg" => "This estate isn't found"
-            ], 200);
+            ], 404);
         }
         if ($estate->reserved == "yes") {
             return response([
                 "isSuccess" => false,
                 "msg" => "This estate is already reserved"
-            ], 200);
+            ], 423);
         }
         if ($estate->rented == "yes") {
             return response([
                 "isSuccess" => false,
                 "msg" => "This estate is already rented"
-            ], 200);
+            ], 423);
         }
         // قيمة رعبون حجز العقار تساوي ثلث قيمة العقار الكلية
         $reservation_deposit = intval($estate->price / 3);
@@ -92,7 +92,7 @@ class ApiController extends Controller
             return response([
                 "isSuccess"         =>       false,
                 "msg"               =>       "You haven't balance enough"
-            ], 200);
+            ], 402);
         }
         $reserve = Reserve::where("user_id", "=", auth()->user()->id)->where("estate_id", "=", $estate->id)->first();
         if (!$reserve) {
@@ -109,7 +109,7 @@ class ApiController extends Controller
                 return response([
                     "isSuccess"             =>      false,
                     "msg"                   =>      "The reservation isn't install"
-                ], 200);
+                ], 417);
             } else {
                 $estate->reserved = "yes";
                 $estate->save();
@@ -126,7 +126,7 @@ class ApiController extends Controller
                 return response([
                     "isSuccess"           =>      false,
                     "msg"                 =>      "Your previous booking isn't expired"
-                ], 200);
+                ], 406);
             }
             $date = Carbon::now();
             $user->balance -= $reservation_deposit;
@@ -143,15 +143,16 @@ class ApiController extends Controller
         }
     }
 
+    // هي رقم الحجز $id
     public function reservation_cancel(string $id): HttpResponse
     {
         $user = User::find(auth()->user()->id);
-        $reservation = Reserve::where("user_id", "=", auth()->user()->id)->where("id", "=", $id)->first();
+        $reservation = Reserve::where("user_id", "=", $user->id)->where("id", "=", $id)->first();
         if (!$reservation) {
             return response([
                 "isSuccess"         =>          false,
                 "msg"               =>          "Reservation isn't found"
-            ], 200);
+            ], 404);
         }
         $date = Carbon::parse($reservation->expired_date);
         if (!$date->isFuture()) {
@@ -159,8 +160,8 @@ class ApiController extends Controller
             $reservation->estate->save();
             return response([
                 "isSuccess"         =>          false,
-                "msg"               =>          "Your reservation is previous expired"
-            ], 200);
+                "msg"               =>          "Your previous reservation is expired"
+            ], 406);
         }
         // غرامة الغاء الحجز تساوي نصف قيمة الحجز
         $cancellation_fine = intval($reservation->reservation_deposit / 2);
@@ -179,15 +180,20 @@ class ApiController extends Controller
 
     public function all_reservations(): HttpResponse
     {
-        $reservations = Reserve::where("user_id", auth()->user()->id)->get();
+        $user = User::find(auth()->user()->id);
+        $reservations = Reserve::where("user_id", $user->id)->get();
         if ($reservations->count() < 1) {
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "You haven't any reserve yet"
-            ], 200);
+            ], 404);
         }
         $data = [];
         foreach ($reservations as $reservation) {
+            $date = Carbon::parse($reservation->expired_date);
+            if (!$date->isFuture()) {
+                continue;
+            }
             $data[] = [
                 "id"                      =>      $reservation->id,
                 "user_name"               =>      $reservation->user->name,
@@ -210,20 +216,20 @@ class ApiController extends Controller
             return response([
                 "isSuccess"       =>      false,
                 "msg"             =>      "This estate isn't found"
-            ], 200);
+            ], 404);
         }
         if ($estate->rented == "yes") {
             return response([
                 "isSuccess"       =>      false,
                 "msg"             =>      "This estate is currently rented"
-            ], 200);
+            ], 423);
         }
         $reserve = Reserve::where("user_id", auth()->user()->id)->where("estate_id", $request->estate_id)->first();
         if (!$reserve) {
             return response([
                 "isSuccess"       =>      false,
                 "msg"             =>      "You haven't reservation for this estate"
-            ], 200);
+            ], 404);
         }
         $date = Carbon::parse($reserve->expired_date);
         if (!$date->isFuture()) {
@@ -232,7 +238,7 @@ class ApiController extends Controller
             return response([
                 "isSuccess"       =>      false,
                 "msg"             =>      "Your reservation is expired date"
-            ], 200);
+            ], 406);
         }
 
         $contract = Contract::where("user_id", auth()->user()->id)->where("estate_id", $request->estate_id)->first();
@@ -241,7 +247,7 @@ class ApiController extends Controller
             return response([
                 "isSuccess"       =>      false,
                 "msg"             =>      "You haven't enough balance"
-            ], 200);
+            ], 402);
         }
         if (!$contract) {
             $date = Carbon::now();
@@ -258,7 +264,7 @@ class ApiController extends Controller
                 return response([
                     "isSuccess"     =>      false,
                     "msg"           =>      "The contract isn't install"
-                ], 200);
+                ], 417);
             }
             $estate->reserved = "no";
             $estate->rented = "yes";
@@ -277,7 +283,7 @@ class ApiController extends Controller
                 return response([
                     "isSuccess"     =>      false,
                     "msg"           =>      "Your contract isn't expired yet"
-                ], 200);
+                ], 406);
             } else {
                 $estate->rented = "no";
                 $estate->save();
@@ -285,7 +291,7 @@ class ApiController extends Controller
                     return response([
                         "isSuccess"     =>      false,
                         "msg"           =>      "Your contract not accept extension"
-                    ], 200);
+                    ], 406);
                 } else if ($contract->extension == "yes") {
                     return response([
                         "isSuccess"     =>      true,
@@ -298,15 +304,20 @@ class ApiController extends Controller
 
     public function all_contracts(): HttpResponse
     {
-        $contracts = Contract::where("user_id", auth()->user()->id)->get();
+        $user = User::find(auth()->user()->id);
+        $contracts = Contract::where("user_id", $user->id)->get();
         if ($contracts->count() < 1) {
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "You haven't any contract yet"
-            ], 200);
+            ], 404);
         }
         $data = [];
         foreach ($contracts as $contract) {
+            $date = Carbon::parse($contract->expired_date);
+            if (!$date->isFuture()) {
+                continue;
+            }
             $data[] = [
                 "id"            =>      $contract->id,
                 "owner_name"    =>      $contract->owner_name,
@@ -330,14 +341,14 @@ class ApiController extends Controller
             return response([
                 "isSuccess"         =>      false,
                 "msg"               =>      "You haven't contract to this estate"
-            ], 200);
+            ], 404);
         }
         $date = Carbon::parse($contract->expired_date);
         if (!$date->isFuture()) {
             return response([
                 "isSuccess"         =>      false,
                 "msg"               =>      "Your contract is expired already"
-            ], 200);
+            ], 406);
         }
         $contract->estate->rented = "no";
         $contract->estate->save();
@@ -359,26 +370,26 @@ class ApiController extends Controller
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "This contract isn't found"
-            ], 200);
+            ], 404);
         }
         $date = Carbon::parse($contract->expired_date);
         if (!$date->isFuture()) {
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "Your contract is expired"
-            ], 200);
+            ], 406);
         }
         if ($contract->extension == "no") {
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "Your contract unable to extension"
-            ], 200);
+            ], 406);
         }
         if ($user->balance < $contract->estate->price) {
             return response([
                 "isSuccess"     =>      false,
                 "msg"           =>      "You haven't balance enough"
-            ], 200);
+            ], 402);
         }
         $user->balance -= $contract->estate->price;
         $user->save();
@@ -394,12 +405,44 @@ class ApiController extends Controller
         ], 200);
     }
 
-    public function show_balance(): HttpResponse
+    public function myInfo(): HttpResponse
     {
         $user = User::find(auth()->user()->id);
+        $reserves_list =  [];
+        if ($user->reserve->count() > 0) {
+            foreach ($user->reserve as $reserve) {
+                $reserves_list[] = [
+                    "id"                        =>      $reserve->id,
+                    "estate_id"                 =>      $reserve->estate_id,
+                    "reservation_deposit"       =>      $reserve->reservation_deposit,
+                    "expired_date"              =>      $reserve->expired_date
+                ];
+            }
+        }
+        $contracts_list = [];
+        if ($user->contract->count() > 0) {
+            foreach ($user->contract as $contract) {
+                $contracts_list[] = [
+                    "id"                        =>      $contract->id,
+                    "estate_id"                 =>      $contract->estate_id,
+                    "price"                     =>      $contract->price,
+                    "expired_date"              =>      $contract->expired_date,
+                    "extension"                 =>      $contract->extension
+                ];
+            }
+        }
+        $data = [
+            "id"                    =>      $user->id,
+            "name"                  =>      $user->name,
+            "email"                 =>      $user->email,
+            "phone"                 =>      $user->phone,
+            "balance"               =>      $user->balance,
+            "my_reservations"       =>      $reserves_list,
+            "my_contracts"          =>      $contracts_list
+        ];
         return response([
             "isSuccess"         =>      true,
-            "current_balance"   =>      $user->balance
+            "info"              =>      $data
         ], 200);
     }
 }
