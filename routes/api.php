@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
 Route::controller(ApiController::class)->group(function () {
     Route::get("estates", "all_estates");
     Route::get("estate/{id}", "estate");
-    Route::middleware(["auth:sanctum", "cors"])->group(function () {
+    Route::middleware(["auth:sanctum"])->group(function () {
         Route::get("myInformation", "myInfo");
         Route::post("reservation/{id}", "realEstate_reservation");
         Route::post("reserveCancel/{id}", "reservation_cancel");
@@ -33,7 +33,7 @@ Route::controller(ApiController::class)->group(function () {
 
 
 Route::controller(AuthController::class)->group(function () {
-    Route::middleware(["auth:sanctum", "cors"])->group(function () {
+    Route::middleware(["auth:sanctum"])->group(function () {
         Route::get("logout", "logout");
         Route::get("deleteAccount", "delete_account");
     });
