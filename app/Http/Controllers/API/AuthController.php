@@ -18,7 +18,7 @@ class AuthController extends Controller
         $request->validate([
             "name"          =>      "required|string|max:50",
             "email"         =>      "required|email|unique:users,email",
-            "password"      =>      "required|confirmed",
+            "password"      =>      "required|min:6|confirmed",
             "phone"         =>      "required|numeric|unique:users,phone",
         ]);
 
@@ -94,7 +94,7 @@ class AuthController extends Controller
             if ($date->isFuture()) {
                 return response([
                     "isSuccess"         =>      true,
-                    "msg"               =>      "You have previous code is $code_generation->code still active"
+                    "code"               =>     $code_generation->code
                 ], 200);
             } else {
                 $code_generation->code = $code;
@@ -141,7 +141,7 @@ class AuthController extends Controller
         $request->validate([
             "phone"         =>      "required|numeric",
             "code"          =>      "required",
-            "password"      =>      "required|confirmed"
+            "password"      =>      "required|min:6|confirmed"
         ]);
         $code = CodeGenerator::where("phone", "=", $request->phone)->where("code", "=", $request->code)->first();
         if (!$code) {
@@ -184,6 +184,20 @@ class AuthController extends Controller
         return response([
             "isSuccess"     =>      true,
             "msg"           =>      "Your account is deleted"
+        ], 200);
+    }
+
+    public function changePasswordWithAuth(Request $request)
+    {
+        $request->validate([
+            'password'              =>      'required|min:6|confirmed',
+        ]);
+        $user = User::find(auth()->user()->id);
+        $user->password = bcrypt($request->password);
+        $user->save();
+        return response([
+            "isSuccess"         =>      true,
+            "msg"               =>      "Password is changed successfully"
         ], 200);
     }
 }

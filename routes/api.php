@@ -35,6 +35,7 @@ Route::controller(ApiController::class)->group(function () {
 Route::controller(AuthController::class)->group(function () {
     Route::middleware(["auth:sanctum"])->group(function () {
         Route::get("logout", "logout");
+        Route::post("change_password", "changePasswordWithAuth");
         Route::get("deleteAccount", "delete_account");
     });
     Route::prefix("auth")->group(function () {
